@@ -29,6 +29,11 @@ type EngineState struct {
 	// indicate the manifest was already deployed.
 	ResumeMode bool
 
+	// GitCommit is the current git commit SHA at startup. Used for:
+	// 1) Injecting into pod labels during deployment
+	// 2) Comparing against running pods during resume mode to detect file changes
+	GitCommit string
+
 	// saved so that we can render in order
 	ManifestDefinitionOrder []model.ManifestName
 

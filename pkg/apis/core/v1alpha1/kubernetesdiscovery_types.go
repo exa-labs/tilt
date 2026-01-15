@@ -323,6 +323,11 @@ type Pod struct {
 
 	// Direct owner of this pod, if available.
 	Owner *PodOwner `json:"owner,omitempty" protobuf:"bytes,16,opt,name=owner"`
+
+	// GitCommit is the git commit SHA that was used to build the image running in this pod.
+	// Used by resume mode to detect which files changed since the last deployment.
+	// +optional
+	GitCommit string `json:"gitCommit,omitempty" protobuf:"bytes,17,opt,name=gitCommit"`
 }
 
 // PodOwner contains information of the direct owner of the

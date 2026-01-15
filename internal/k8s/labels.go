@@ -12,6 +12,10 @@ const ManagedByValue = "tilt"
 
 const ManifestNameLabel = "tilt-manifest"
 
+// GitCommitLabel stores the git commit SHA that was used to build the deployed image.
+// Used by resume mode to detect which files changed since the last deployment.
+const GitCommitLabel = "tilt.dev/git-commit"
+
 func TiltManagedByLabel() model.LabelPair {
 	return model.LabelPair{
 		Key:   ManagedByLabel,

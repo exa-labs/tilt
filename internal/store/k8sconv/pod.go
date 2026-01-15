@@ -33,6 +33,7 @@ func Pod(ctx context.Context, pod *v1.Pod, ancestorUID types.UID) *v1alpha1.Pod 
 
 		AncestorUID:         string(ancestorUID),
 		PodTemplateSpecHash: pod.Labels[k8s.TiltPodTemplateHashLabel],
+		GitCommit:           pod.Labels[k8s.GitCommitLabel],
 		Status:              PodStatusToString(*pod),
 		Errors:              PodStatusErrorMessages(*pod),
 	}

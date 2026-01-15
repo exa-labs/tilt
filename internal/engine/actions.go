@@ -30,6 +30,7 @@ type InitAction struct {
 	Token        token.Token
 	TerminalMode store.TerminalMode
 	ResumeMode   bool
+	GitCommit    string
 }
 
 func (InitAction) Action() {}

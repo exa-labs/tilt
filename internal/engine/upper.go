@@ -78,6 +78,7 @@ func (u Upper) Start(
 	token token.Token,
 	cloudAddress string,
 	resumeMode bool,
+	gitCommit string,
 ) error {
 
 	startTime := time.Now()
@@ -96,6 +97,7 @@ func (u Upper) Start(
 		CloudAddress:     cloudAddress,
 		TerminalMode:     initTerminalMode,
 		ResumeMode:       resumeMode,
+		GitCommit:        gitCommit,
 	})
 }
 
@@ -286,6 +288,7 @@ func handleInitAction(ctx context.Context, engineState *store.EngineState, actio
 	engineState.Token = action.Token
 	engineState.TerminalMode = action.TerminalMode
 	engineState.ResumeMode = action.ResumeMode
+	engineState.GitCommit = action.GitCommit
 }
 
 func handleHudExitAction(state *store.EngineState, action hud.ExitAction) {

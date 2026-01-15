@@ -1,9 +1,11 @@
 package kubernetesdiscoverys
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/tilt-dev/tilt/internal/controllers/apicmp"
+	"github.com/tilt-dev/tilt/internal/git"
 	"github.com/tilt-dev/tilt/internal/store"
 	"github.com/tilt-dev/tilt/internal/store/k8sconv"
 	"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1"
@@ -100,11 +102,16 @@ func RefreshKubernetesResource(state *store.EngineState, name string) {
 			// In resume mode, if we discover running pods for a manifest that hasn't
 			// started its first build yet, inject a synthetic build record to indicate
 			// the manifest was already deployed. This prevents unnecessary rebuilds.
+			// Also compute git diff to detect which files changed since the last deployment.
 			if state.ResumeMode && !ms.StartedFirstBuild() && len(r.FilteredPods) > 0 {
 				hasRunningPod := false
+				var podGitCommit string
 				for _, pod := range r.FilteredPods {
 					if pod.Phase == "Running" {
 						hasRunningPod = true
+						if pod.GitCommit != "" {
+							podGitCommit = pod.GitCommit
+						}
 						break
 					}
 				}
@@ -115,6 +122,28 @@ func RefreshKubernetesResource(state *store.EngineState, name string) {
 						Reason:     model.BuildReasonFlagInit,
 						SpanID:     logstore.SpanID("resumed:" + string(mn)),
 					})
+
+					// If we have both the current git commit and the pod's git commit,
+					// compute the diff and inject changed files as pending changes.
+					// This allows Tilt to determine if a rebuild or live_update is needed.
+					if state.GitCommit != "" && podGitCommit != "" && state.GitCommit != podGitCommit {
+						diffFiles, err := git.GetDiffFiles(".", podGitCommit, state.GitCommit)
+						if err == nil && len(diffFiles) > 0 {
+							now := time.Now()
+							// Get the first target ID from the manifest's build statuses
+							// to use for adding pending file changes
+							for targetID := range ms.BuildStatuses {
+								for _, file := range diffFiles {
+									absPath, err := filepath.Abs(file)
+									if err != nil {
+										continue
+									}
+									ms.AddPendingFileChange(targetID, absPath, now)
+								}
+								break // Only need to add to one target
+							}
+						}
+					}
 				}
 			}
 		}

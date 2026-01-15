@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tilt-dev/tilt/internal/analytics"
+	"github.com/tilt-dev/tilt/internal/git"
 	"github.com/tilt-dev/tilt/internal/hud/prompt"
 	"github.com/tilt-dev/tilt/internal/store"
 	"github.com/tilt-dev/tilt/pkg/logger"
@@ -101,9 +102,15 @@ func (c *ciCmd) run(ctx context.Context, args []string) error {
 		defer cmdCIDeps.Snapshotter.WriteSnapshot(ctx, c.outputSnapshotOnExit)
 	}
 
+	// Get the current git commit for resume mode file change detection
+	gitCommit := ""
+	if c.resume {
+		gitCommit = git.GetHeadCommit(".")
+	}
+
 	err = upper.Start(ctx, args, cmdCIDeps.TiltBuild,
 		c.fileName, store.TerminalModeStream, a.UserOpt(), cmdCIDeps.Token,
-		string(cmdCIDeps.CloudAddress), c.resume)
+		string(cmdCIDeps.CloudAddress), c.resume, gitCommit)
 	if err == nil {
 		_, _ = fmt.Fprintln(colorable.NewColorableStdout(),
 			color.GreenString("SUCCESS. All workloads are healthy."))

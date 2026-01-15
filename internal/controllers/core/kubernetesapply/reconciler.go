@@ -470,10 +470,18 @@ func (r *Reconciler) createEntitiesToDeploy(ctx context.Context,
 	var injectResults []injectResult
 	imageMapNames := spec.ImageMaps
 	injectedImageMaps := map[string]bool{}
+	// Get git commit from store for resume mode tracking
+	var gitCommit string
+	state := r.st.RLockState()
+	gitCommit = state.GitCommit
+	r.st.RUnlockState()
+
 	for _, e := range entities {
-		e, err = k8s.InjectLabels(e, []model.LabelPair{
-			k8s.TiltManagedByLabel(),
-		})
+		labels := []model.LabelPair{k8s.TiltManagedByLabel()}
+		if gitCommit != "" {
+			labels = append(labels, model.LabelPair{Key: k8s.GitCommitLabel, Value: gitCommit})
+		}
+		e, err = k8s.InjectLabels(e, labels)
 		if err != nil {
 			return nil, errors.Wrap(err, "deploy")
 		}

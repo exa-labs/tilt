@@ -44,3 +44,25 @@ func normalizeGitRemote(s string) string {
 
 	return u.String()
 }
+
+func GetHeadCommit(fromDir string) string {
+	cmd := exec.Command("git", "-C", fromDir, "rev-parse", "HEAD")
+	b, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimRight(string(b), "\n")
+}
+
+func GetDiffFiles(fromDir, fromCommit, toCommit string) ([]string, error) {
+	cmd := exec.Command("git", "-C", fromDir, "diff", "--name-only", fromCommit, toCommit)
+	b, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	output := strings.TrimRight(string(b), "\n")
+	if output == "" {
+		return nil, nil
+	}
+	return strings.Split(output, "\n"), nil
+}
