@@ -77,6 +77,7 @@ func (u Upper) Start(
 	analyticsUserOpt analytics.Opt,
 	token token.Token,
 	cloudAddress string,
+	resumeMode bool,
 ) error {
 
 	startTime := time.Now()
@@ -94,6 +95,7 @@ func (u Upper) Start(
 		Token:            token,
 		CloudAddress:     cloudAddress,
 		TerminalMode:     initTerminalMode,
+		ResumeMode:       resumeMode,
 	})
 }
 
@@ -283,6 +285,7 @@ func handleInitAction(ctx context.Context, engineState *store.EngineState, actio
 	engineState.CloudAddress = action.CloudAddress
 	engineState.Token = action.Token
 	engineState.TerminalMode = action.TerminalMode
+	engineState.ResumeMode = action.ResumeMode
 }
 
 func handleHudExitAction(state *store.EngineState, action hud.ExitAction) {

@@ -8,6 +8,7 @@ import (
 	"github.com/tilt-dev/tilt/internal/store/k8sconv"
 	"github.com/tilt-dev/tilt/pkg/apis/core/v1alpha1"
 	"github.com/tilt-dev/tilt/pkg/model"
+	"github.com/tilt-dev/tilt/pkg/model/logstore"
 )
 
 func HandleKubernetesDiscoveryUpsertAction(state *store.EngineState, action KubernetesDiscoveryUpsertAction) {
@@ -95,6 +96,27 @@ func RefreshKubernetesResource(state *store.EngineState, name string) {
 			}
 
 			ms.RuntimeState = krs
+
+			// In resume mode, if we discover running pods for a manifest that hasn't
+			// started its first build yet, inject a synthetic build record to indicate
+			// the manifest was already deployed. This prevents unnecessary rebuilds.
+			if state.ResumeMode && !ms.StartedFirstBuild() && len(r.FilteredPods) > 0 {
+				hasRunningPod := false
+				for _, pod := range r.FilteredPods {
+					if pod.Phase == "Running" {
+						hasRunningPod = true
+						break
+					}
+				}
+				if hasRunningPod {
+					ms.AddCompletedBuild(model.BuildRecord{
+						StartTime:  time.Now().Add(-time.Second),
+						FinishTime: time.Now(),
+						Reason:     model.BuildReasonFlagInit,
+						SpanID:     logstore.SpanID("resumed:" + string(mn)),
+					})
+				}
+			}
 		}
 	}
 }

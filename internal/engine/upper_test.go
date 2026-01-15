@@ -2110,7 +2110,7 @@ func TestEmptyTiltfile(t *testing.T) {
 		err := f.upper.Start(f.ctx, []string{}, model.TiltBuild{},
 			f.JoinPath("Tiltfile"), store.TerminalModeHUD,
 			analytics.OptIn, token.Token("unit test token"),
-			"nonexistent.example.com")
+			"nonexistent.example.com", false)
 		closeCh <- err
 	}()
 	f.WaitUntil("build is set", func(st store.EngineState) bool {
@@ -2144,7 +2144,7 @@ func TestUpperStart(t *testing.T) {
 	go func() {
 		err := f.upper.Start(f.ctx, []string{"foo", "bar"}, model.TiltBuild{},
 			f.JoinPath("Tiltfile"), store.TerminalModeHUD,
-			analytics.OptIn, tok, cloudAddress)
+			analytics.OptIn, tok, cloudAddress, false)
 		closeCh <- err
 	}()
 	f.WaitUntil("init action processed", func(state store.EngineState) bool {

@@ -29,6 +29,7 @@ type InitAction struct {
 	CloudAddress string
 	Token        token.Token
 	TerminalMode store.TerminalMode
+	ResumeMode   bool
 }
 
 func (InitAction) Action() {}

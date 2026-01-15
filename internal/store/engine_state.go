@@ -23,6 +23,12 @@ type EngineState struct {
 	TiltBuildInfo model.TiltBuild
 	TiltStartTime time.Time
 
+	// ResumeMode indicates that tilt should try to resume from existing deployments
+	// instead of doing full rebuilds. When enabled, if pods are discovered for a
+	// manifest before its first build, a synthetic build record is injected to
+	// indicate the manifest was already deployed.
+	ResumeMode bool
+
 	// saved so that we can render in order
 	ManifestDefinitionOrder []model.ManifestName
 

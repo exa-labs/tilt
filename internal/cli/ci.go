@@ -20,6 +20,7 @@ import (
 type ciCmd struct {
 	fileName             string
 	outputSnapshotOnExit string
+	resume               bool
 }
 
 func (c *ciCmd) name() model.TiltSubcommand { return "ci" }
@@ -58,6 +59,9 @@ See blog post for additional information: https://blog.tilt.dev/2020/04/16/how-t
 		"If specified, Tilt will dump a snapshot of its state to the specified path when it exits")
 	cmd.Flags().DurationVar(&ciTimeout, "timeout", model.CITimeoutDefault,
 		"Timeout to wait for CI to pass. Set to 0 for no timeout.")
+	cmd.Flags().BoolVar(&c.resume, "resume", false,
+		"Resume from existing deployments instead of doing full rebuilds. "+
+			"When enabled, if pods are already running for a manifest, Tilt will skip the initial build.")
 
 	return cmd
 }
@@ -99,7 +103,7 @@ func (c *ciCmd) run(ctx context.Context, args []string) error {
 
 	err = upper.Start(ctx, args, cmdCIDeps.TiltBuild,
 		c.fileName, store.TerminalModeStream, a.UserOpt(), cmdCIDeps.Token,
-		string(cmdCIDeps.CloudAddress))
+		string(cmdCIDeps.CloudAddress), c.resume)
 	if err == nil {
 		_, _ = fmt.Fprintln(colorable.NewColorableStdout(),
 			color.GreenString("SUCCESS. All workloads are healthy."))
