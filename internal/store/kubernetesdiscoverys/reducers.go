@@ -128,12 +128,7 @@ func RefreshKubernetesResource(state *store.EngineState, name string) {
 					// This allows Tilt to determine if a rebuild or live_update is needed.
 					if state.GitCommit != "" && podGitCommit != "" && state.GitCommit != podGitCommit {
 						diffFiles, err := git.GetDiffFiles(".", podGitCommit, state.GitCommit)
-						if err != nil {
-							// Git diff failed (e.g., shallow clone after rebase where old commit
-							// is not available). Fall back to triggering a full rebuild by
-							// clearing the synthetic build record we just added.
-							ms.BuildHistory = nil
-						} else if len(diffFiles) > 0 {
+						if err == nil && len(diffFiles) > 0 {
 							now := time.Now()
 							// Get the first target ID from the manifest's build statuses
 							// to use for adding pending file changes
