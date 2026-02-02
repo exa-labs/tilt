@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resume-test
+  namespace: tilt-integration
+  labels:
+    app: resume-test
+spec:
+  selector:
+    matchLabels:
+      app: resume-test
+  template:
+    metadata:
+      labels:
+        app: resume-test
+    spec:
+      containers:
+      - name: resume-test
+        image: resume-test
+        ports:
+        - containerPort: 8000

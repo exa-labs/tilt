@@ -1,0 +1,10 @@
+# -*- mode: Python -*-
+
+include('../Tiltfile')
+
+default_registry(read_json('tilt_option.json', {})
+                 .get('default_registry', 'gcr.io/windmill-test-containers/servantes'))
+
+docker_build('resume-test', '.')
+k8s_yaml('resume.yaml')
+k8s_resource('resume-test', port_forwards=8100)
