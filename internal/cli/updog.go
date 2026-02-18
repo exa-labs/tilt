@@ -123,7 +123,7 @@ func (c *updogCmd) run(ctx context.Context, args []string) error {
 	// controllers registered.
 	err = deps.Upper.Start(ctx, args, deps.TiltBuild,
 		"Tiltfile", store.TerminalModeStream, a.UserOpt(), deps.Token,
-		string(deps.CloudAddress))
+		string(deps.CloudAddress), false)
 	if err != context.Canceled {
 		return err
 	} else {

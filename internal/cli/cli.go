@@ -58,6 +58,7 @@ up-to-date in real-time. Think 'docker build && kubectl apply' or 'docker-compos
 	}
 	streams := genericclioptions.IOStreams{Out: os.Stdout, ErrOut: os.Stderr, In: os.Stdin}
 
+	addCommand(rootCmd, &attachCmd{})
 	addCommand(rootCmd, &ciCmd{})
 	addCommand(rootCmd, &upCmd{})
 	addCommand(rootCmd, &dockerCmd{})
