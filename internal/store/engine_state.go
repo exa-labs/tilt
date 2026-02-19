@@ -34,6 +34,11 @@ type EngineState struct {
 	// 2) Comparing against running pods during resume mode to detect file changes
 	GitCommit string
 
+	// ResumeDiffPending tracks manifests that need a git diff computed.
+	// Maps manifest name to the pod's git commit SHA. A subscriber processes
+	// these asynchronously outside the store lock to avoid blocking the event loop.
+	ResumeDiffPending map[model.ManifestName]string
+
 	// saved so that we can render in order
 	ManifestDefinitionOrder []model.ManifestName
 
@@ -609,6 +614,7 @@ func NewState() *EngineState {
 	ret.ImageMaps = make(map[string]*v1alpha1.ImageMap)
 	ret.DockerImages = make(map[string]*v1alpha1.DockerImage)
 	ret.CmdImages = make(map[string]*v1alpha1.CmdImage)
+	ret.ResumeDiffPending = make(map[model.ManifestName]string)
 
 	return ret
 }

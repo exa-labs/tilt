@@ -200,6 +200,8 @@ func upperReducerFn(ctx context.Context, state *store.EngineState, action store.
 		kubernetesdiscoverys.HandleKubernetesDiscoveryUpsertAction(state, action)
 	case kubernetesdiscoverys.KubernetesDiscoveryDeleteAction:
 		kubernetesdiscoverys.HandleKubernetesDiscoveryDeleteAction(state, action)
+	case kubernetesdiscoverys.ResumeGitDiffComputedAction:
+		kubernetesdiscoverys.HandleResumeGitDiffComputedAction(state, action)
 	case uiresources.UIResourceUpsertAction:
 		uiresources.HandleUIResourceUpsertAction(state, action)
 	case uiresources.UIResourceDeleteAction:

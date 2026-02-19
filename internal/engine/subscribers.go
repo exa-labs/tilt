@@ -17,6 +17,7 @@ import (
 	"github.com/tilt-dev/tilt/internal/hud/prompt"
 	"github.com/tilt-dev/tilt/internal/hud/server"
 	"github.com/tilt-dev/tilt/internal/store"
+	"github.com/tilt-dev/tilt/internal/store/kubernetesdiscoverys"
 )
 
 // Subscribers that only read from the new Tilt API,
@@ -69,6 +70,7 @@ func ProvideSubscribers(
 		hud,
 		tp,
 		sw,
+		kubernetesdiscoverys.NewResumeGitDiffSubscriber(),
 		bc,
 		cc,
 		tqs,
