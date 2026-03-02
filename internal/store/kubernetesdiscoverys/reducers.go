@@ -121,6 +121,11 @@ func maybeInjectAttachBuild(state *store.EngineState, ms *store.ManifestState, r
 		FinishTime: now,
 		Reason:     model.BuildReasonFlagInit,
 	})
+	ms.LastSuccessfulDeployTime = now
+
+	krs := ms.K8sRuntimeState()
+	krs.HasEverDeployedSuccessfully = true
+	ms.RuntimeState = krs
 }
 
 func hasRunningPod(pods []v1alpha1.Pod) bool {
