@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -17,6 +18,7 @@ import (
 	"github.com/tilt-dev/starlark-lsp/pkg/cli"
 	tiltanalytics "github.com/tilt-dev/tilt/internal/analytics"
 	"github.com/tilt-dev/tilt/internal/controllers"
+	"github.com/tilt-dev/tilt/internal/controllers/core/cluster"
 	"github.com/tilt-dev/tilt/internal/output"
 	"github.com/tilt-dev/tilt/pkg/logger"
 	"github.com/tilt-dev/tilt/pkg/model"
@@ -166,6 +168,11 @@ func addCommand(parent *cobra.Command, child tiltCmd) {
 			_, printErr := fmt.Fprintf(output.OriginalStderr, "Error: %v\n", err)
 			if printErr != nil {
 				panic(printErr)
+			}
+
+			var clusterErr *cluster.ClusterUnreachableError
+			if errors.As(err, &clusterErr) {
+				os.Exit(cluster.ExitCodeClusterUnreachable)
 			}
 			os.Exit(1)
 		}

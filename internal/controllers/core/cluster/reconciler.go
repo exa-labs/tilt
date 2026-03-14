@@ -35,6 +35,24 @@ import (
 
 const ArchUnknown string = "unknown"
 
+// ExitCodeClusterUnreachable is the process exit code used when Tilt cannot
+// connect to the Kubernetes cluster and cluster-refresh is not enabled.
+// Callers can check for this code to decide whether a retry is worthwhile.
+const ExitCodeClusterUnreachable = 78
+
+// ClusterUnreachableError signals that the initial cluster connection failed
+// and Tilt will not automatically retry (cluster-refresh feature is off).
+// The wrapping process should exit with ExitCodeClusterUnreachable so that
+// external orchestrators (CI, test harnesses) can distinguish a retryable
+// cluster blip from a permanent failure.
+type ClusterUnreachableError struct {
+	Msg string
+}
+
+func (e *ClusterUnreachableError) Error() string {
+	return e.Msg
+}
+
 const (
 	clientInitBackoff        = 30 * time.Second
 	clientHealthPollInterval = 15 * time.Second
@@ -149,12 +167,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 					initError = fmt.Sprintf(
 						"Tilt encountered an error connecting to your Kubernetes cluster:"+
 							"\n\t%v"+
-							"\nYou will need to restart Tilt after resolving the issue.",
+							"\nTilt will exit. Retry the command if the issue is transient.",
 						err)
 				} else {
 					initError = err.Error()
 				}
 				conn.initError = initError
+
+				if !clusterRefreshEnabled {
+					r.store.Dispatch(store.NewErrorAction(&ClusterUnreachableError{Msg: initError}))
+				}
 			} else {
 				conn.k8sClient = client
 			}
