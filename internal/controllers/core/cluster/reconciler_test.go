@@ -53,7 +53,7 @@ func TestKubernetesError(t *testing.T) {
 	assert.Equal(t, "", cluster.Status.Error)
 	f.MustGet(nn, cluster)
 	assert.Equal(t,
-		"Tilt encountered an error connecting to your Kubernetes cluster:\n\tfake error\nYou will need to restart Tilt after resolving the issue.",
+		"Tilt encountered an error connecting to your Kubernetes cluster:\n\tfake error\nTilt will exit. Retry the command if the issue is transient.",
 		cluster.Status.Error)
 	assert.Nil(t, cluster.Status.ConnectedAt, "ConnectedAt should be empty")
 
