@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -29,6 +31,7 @@ type ImageBuildAndDeployer struct {
 	clock      build.Clock
 	ctrlClient ctrlclient.Client
 	r          *kubernetesapply.Reconciler
+	tracer     trace.Tracer
 }
 
 func NewImageBuildAndDeployer(
@@ -39,6 +42,7 @@ func NewImageBuildAndDeployer(
 	c build.Clock,
 	ctrlClient ctrlclient.Client,
 	r *kubernetesapply.Reconciler,
+	tracer trace.Tracer,
 ) *ImageBuildAndDeployer {
 	return &ImageBuildAndDeployer{
 		dr:         dr,
@@ -48,6 +52,7 @@ func NewImageBuildAndDeployer(
 		clock:      c,
 		ctrlClient: ctrlClient,
 		r:          r,
+		tracer:     tracer,
 	}
 }
 
@@ -55,6 +60,19 @@ func (ibd *ImageBuildAndDeployer) BuildAndDeploy(ctx context.Context, st store.R
 	iTargets, kTargets := extractImageAndK8sTargets(specs)
 	if len(kTargets) != 1 {
 		return store.BuildResultSet{}, SilentRedirectToNextBuilderf("ImageBuildAndDeployer does not support these specs")
+	}
+
+	// Create a span for the entire image build+deploy pipeline.
+	if ibd.tracer != nil {
+		var span trace.Span
+		ctx, span = ibd.tracer.Start(ctx, "image-build-and-deploy",
+			trace.WithAttributes(attribute.String("target", kTargets[0].ID().String())))
+		defer func() {
+			if err != nil {
+				span.SetAttributes(attribute.String("error", err.Error()))
+			}
+			span.End()
+		}()
 	}
 
 	kTarget := kTargets[0]
@@ -163,6 +181,12 @@ func (ibd *ImageBuildAndDeployer) build(
 	cluster *v1alpha1.Cluster,
 	imageMaps map[types.NamespacedName]*v1alpha1.ImageMap,
 	ps *build.PipelineState) (store.ImageBuildResult, error) {
+	if ibd.tracer != nil {
+		var span trace.Span
+		ctx, span = ibd.tracer.Start(ctx, "image-build",
+			trace.WithAttributes(attribute.String("image", iTarget.ID().String())))
+		defer span.End()
+	}
 	switch iTarget.BuildDetails.(type) {
 	case model.DockerBuild:
 		return ibd.dr.ForceApply(ctx, iTarget, cluster, imageMaps, ps)
@@ -181,6 +205,12 @@ func (ibd *ImageBuildAndDeployer) deploy(
 	spec v1alpha1.KubernetesApplySpec,
 	cluster *v1alpha1.Cluster,
 	imageMaps map[types.NamespacedName]*v1alpha1.ImageMap) (store.K8sBuildResult, error) {
+	if ibd.tracer != nil {
+		var span trace.Span
+		ctx, span = ibd.tracer.Start(ctx, "k8s-deploy",
+			trace.WithAttributes(attribute.String("target", kTargetID.String())))
+		defer span.End()
+	}
 	ps.StartPipelineStep(ctx, "Deploying")
 	defer ps.EndPipelineStep(ctx)
 

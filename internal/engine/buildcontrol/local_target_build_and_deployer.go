@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -23,16 +25,19 @@ type LocalTargetBuildAndDeployer struct {
 	clock      build.Clock
 	ctrlClient ctrlclient.Client
 	cmds       *cmd.Controller
+	tracer     trace.Tracer
 }
 
 func NewLocalTargetBuildAndDeployer(
 	c build.Clock,
 	ctrlClient ctrlclient.Client,
-	cmds *cmd.Controller) *LocalTargetBuildAndDeployer {
+	cmds *cmd.Controller,
+	tracer trace.Tracer) *LocalTargetBuildAndDeployer {
 	return &LocalTargetBuildAndDeployer{
 		clock:      c,
 		ctrlClient: ctrlClient,
 		cmds:       cmds,
+		tracer:     tracer,
 	}
 }
 
@@ -44,6 +49,18 @@ func (bd *LocalTargetBuildAndDeployer) BuildAndDeploy(ctx context.Context, st st
 	}
 
 	targ := targets[0]
+
+	if bd.tracer != nil {
+		var span trace.Span
+		ctx, span = bd.tracer.Start(ctx, "local-update",
+			trace.WithAttributes(attribute.String("target", targ.ID().String())))
+		defer func() {
+			if err != nil {
+				span.SetAttributes(attribute.String("error", err.Error()))
+			}
+			span.End()
+		}()
+	}
 	if targ.UpdateCmdSpec == nil {
 		// Even if a LocalResource has no update command, we push it through the build-and-deploy
 		// pipeline so that it gets all the appropriate logs.

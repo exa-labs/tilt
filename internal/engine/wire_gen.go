@@ -52,11 +52,13 @@ func provideFakeBuildAndDeployer(ctx context.Context, docker2 docker.Client, kCl
 	reconciler := dockerimage.NewReconciler(ctrlClient, st, scheme, docker2, imageBuilder)
 	cmdimageReconciler := cmdimage.NewReconciler(ctrlClient, st, scheme, docker2, imageBuilder)
 	kubernetesapplyReconciler := kubernetesapply.NewReconciler(ctrlClient, kClient, scheme, st, execer)
-	imageBuildAndDeployer := buildcontrol.NewImageBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, analytics2, clock, ctrlClient, kubernetesapplyReconciler)
+	spanExporter := _wireSpanExporterValue
+	traceTracer := tracer.InitOpenTelemetry(spanExporter)
+	imageBuildAndDeployer := buildcontrol.NewImageBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, analytics2, clock, ctrlClient, kubernetesapplyReconciler, traceTracer)
 	disableSubscriber := dockercomposeservice.NewDisableSubscriber(ctx, dcc, clockworkClock)
 	dockercomposeserviceReconciler := dockercomposeservice.NewReconciler(ctrlClient, dcc, docker2, st, scheme, disableSubscriber)
-	dockerComposeBuildAndDeployer := buildcontrol.NewDockerComposeBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, dockercomposeserviceReconciler, clock, ctrlClient)
-	localTargetBuildAndDeployer := buildcontrol.NewLocalTargetBuildAndDeployer(clock, ctrlClient, controller)
+	dockerComposeBuildAndDeployer := buildcontrol.NewDockerComposeBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, dockercomposeserviceReconciler, clock, ctrlClient, traceTracer)
+	localTargetBuildAndDeployer := buildcontrol.NewLocalTargetBuildAndDeployer(clock, ctrlClient, controller, traceTracer)
 	kubeContext := provideFakeKubeContext(env)
 	clusterEnv := provideFakeDockerClusterEnv(ctx, docker2, env, kubeContext, kClient)
 	liveupdatesUpdateMode, err := liveupdates.ProvideUpdateMode(updateMode, kubeContext, clusterEnv)
@@ -64,8 +66,6 @@ func provideFakeBuildAndDeployer(ctx context.Context, docker2 docker.Client, kCl
 		return nil, err
 	}
 	buildOrder := DefaultBuildOrder(imageBuildAndDeployer, dockerComposeBuildAndDeployer, localTargetBuildAndDeployer, liveupdatesUpdateMode)
-	spanExporter := _wireSpanExporterValue
-	traceTracer := tracer.InitOpenTelemetry(spanExporter)
 	compositeBuildAndDeployer := NewCompositeBuildAndDeployer(buildOrder, traceTracer)
 	return compositeBuildAndDeployer, nil
 }

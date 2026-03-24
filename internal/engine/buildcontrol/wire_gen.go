@@ -50,7 +50,9 @@ func ProvideImageBuildAndDeployer(ctx context.Context, docker2 docker.Client, kC
 	cmdimageReconciler := cmdimage.NewReconciler(ctrlclient, st, scheme, docker2, imageBuilder)
 	processExecer := localexec.NewProcessExecer(localexecEnv)
 	kubernetesapplyReconciler := kubernetesapply.NewReconciler(ctrlclient, kClient, scheme, st, processExecer)
-	imageBuildAndDeployer := NewImageBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, analytics2, clock, ctrlclient, kubernetesapplyReconciler)
+	spanCollector := tracer.NewSpanCollector(ctx)
+	traceTracer := tracer.InitOpenTelemetry(spanCollector)
+	imageBuildAndDeployer := NewImageBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, analytics2, clock, ctrlclient, kubernetesapplyReconciler, traceTracer)
 	return imageBuildAndDeployer, nil
 }
 
@@ -74,7 +76,9 @@ func ProvideDockerComposeBuildAndDeployer(ctx context.Context, dcCli dockercompo
 	cmdimageReconciler := cmdimage.NewReconciler(ctrlclient, st, scheme, dCli, imageBuilder)
 	disableSubscriber := dockercomposeservice.NewDisableSubscriber(ctx, dcCli, clock)
 	dockercomposeserviceReconciler := dockercomposeservice.NewReconciler(ctrlclient, dcCli, dCli, st, scheme, disableSubscriber)
-	dockerComposeBuildAndDeployer := NewDockerComposeBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, dockercomposeserviceReconciler, buildClock, ctrlclient)
+	spanCollector := tracer.NewSpanCollector(ctx)
+	traceTracer := tracer.InitOpenTelemetry(spanCollector)
+	dockerComposeBuildAndDeployer := NewDockerComposeBuildAndDeployer(reconciler, cmdimageReconciler, imageBuilder, dockercomposeserviceReconciler, buildClock, ctrlclient, traceTracer)
 	return dockerComposeBuildAndDeployer, nil
 }
 
