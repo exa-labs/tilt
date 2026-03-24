@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/types"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,6 +30,7 @@ type DockerComposeBuildAndDeployer struct {
 	dcsr       *dockercomposeservice.Reconciler
 	clock      build.Clock
 	ctrlClient ctrlclient.Client
+	tracer     trace.Tracer
 }
 
 var _ BuildAndDeployer = &DockerComposeBuildAndDeployer{}
@@ -39,6 +42,7 @@ func NewDockerComposeBuildAndDeployer(
 	dcsr *dockercomposeservice.Reconciler,
 	c build.Clock,
 	ctrlClient ctrlclient.Client,
+	tracer trace.Tracer,
 ) *DockerComposeBuildAndDeployer {
 	return &DockerComposeBuildAndDeployer{
 		dr:         dr,
@@ -47,6 +51,7 @@ func NewDockerComposeBuildAndDeployer(
 		dcsr:       dcsr,
 		clock:      c,
 		ctrlClient: ctrlClient,
+		tracer:     tracer,
 	}
 }
 
@@ -107,6 +112,18 @@ func (bd *DockerComposeBuildAndDeployer) BuildAndDeploy(ctx context.Context, st 
 	plan, err := bd.extract(specs)
 	if err != nil {
 		return store.BuildResultSet{}, err
+	}
+
+	if bd.tracer != nil {
+		var span trace.Span
+		ctx, span = bd.tracer.Start(ctx, "dc-build-and-deploy",
+			trace.WithAttributes(attribute.String("target", plan.dockerComposeTarget.ID().String())))
+		defer func() {
+			if err != nil {
+				span.SetAttributes(attribute.String("error", err.Error()))
+			}
+			span.End()
+		}()
 	}
 
 	startTime := time.Now()
