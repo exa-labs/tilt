@@ -36,7 +36,6 @@ import (
 	"github.com/tilt-dev/tilt/internal/engine"
 	engineanalytics "github.com/tilt-dev/tilt/internal/engine/analytics"
 	"github.com/tilt-dev/tilt/internal/engine/configs"
-	"github.com/tilt-dev/tilt/internal/engine/dockerprune"
 	"github.com/tilt-dev/tilt/internal/engine/k8srollout"
 	"github.com/tilt-dev/tilt/internal/engine/k8swatch"
 	"github.com/tilt-dev/tilt/internal/engine/local"
@@ -122,8 +121,6 @@ var BaseWireSet = wire.NewSet(
 	wire.Bind(new(store.RStore), new(*store.Store)),
 	wire.Bind(new(store.Dispatcher), new(*store.Store)),
 
-	dockerprune.NewDockerPruner,
-
 	provideTiltInfo,
 	engine.NewUpper,
 	engineanalytics.NewAnalyticsUpdater,
@@ -170,11 +167,6 @@ var UpWireSet = wire.NewSet(
 func wireTiltfileResult(ctx context.Context, analytics *analytics.TiltAnalytics, subcommand model.TiltSubcommand) (cmdTiltfileResultDeps, error) {
 	wire.Build(UpWireSet, newTiltfileResultDeps)
 	return cmdTiltfileResultDeps{}, nil
-}
-
-func wireDockerPrune(ctx context.Context, analytics *analytics.TiltAnalytics, subcommand model.TiltSubcommand) (dpDeps, error) {
-	wire.Build(UpWireSet, newDPDeps)
-	return dpDeps{}, nil
 }
 
 func wireCmdUp(ctx context.Context, analytics *analytics.TiltAnalytics, cmdTags engineanalytics.CmdTags, subcommand model.TiltSubcommand) (CmdUpDeps, error) {

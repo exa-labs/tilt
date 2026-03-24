@@ -36,7 +36,6 @@ import (
 	"github.com/tilt-dev/tilt/internal/sliceutils"
 	"github.com/tilt-dev/tilt/internal/tiltfile/analytics"
 	"github.com/tilt-dev/tilt/internal/tiltfile/config"
-	"github.com/tilt-dev/tilt/internal/tiltfile/dockerprune"
 	"github.com/tilt-dev/tilt/internal/tiltfile/encoding"
 	"github.com/tilt-dev/tilt/internal/tiltfile/git"
 	"github.com/tilt-dev/tilt/internal/tiltfile/include"
@@ -218,7 +217,6 @@ func (s *tiltfileState) loadManifests(tf *v1alpha1.Tiltfile) ([]model.Manifest, 
 		sys.NewPlugin(),
 		io.NewPlugin(),
 		s.k8sContextPlugin,
-		dockerprune.NewPlugin(),
 		analytics.NewPlugin(),
 		s.versionPlugin,
 		s.configPlugin,

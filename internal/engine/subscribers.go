@@ -5,7 +5,6 @@ import (
 	"github.com/tilt-dev/tilt/internal/controllers"
 	"github.com/tilt-dev/tilt/internal/engine/analytics"
 	"github.com/tilt-dev/tilt/internal/engine/configs"
-	"github.com/tilt-dev/tilt/internal/engine/dockerprune"
 	"github.com/tilt-dev/tilt/internal/engine/k8srollout"
 	"github.com/tilt-dev/tilt/internal/engine/k8swatch"
 	"github.com/tilt-dev/tilt/internal/engine/local"
@@ -55,7 +54,6 @@ func ProvideSubscribers(
 	au *analytics.AnalyticsUpdater,
 	ewm *k8swatch.EventWatchManager,
 	tcum *cloud.CloudStatusManager,
-	dp *dockerprune.DockerPruner,
 	tc *telemetry.Controller,
 	lsc *local.ServerController,
 	podm *k8srollout.PodMonitor,
@@ -76,7 +74,6 @@ func ProvideSubscribers(
 		au,
 		ewm,
 		tcum,
-		dp,
 		tc,
 		lsc,
 		podm,

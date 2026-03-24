@@ -66,7 +66,6 @@ import (
 	engineanalytics "github.com/tilt-dev/tilt/internal/engine/analytics"
 	"github.com/tilt-dev/tilt/internal/engine/buildcontrol"
 	"github.com/tilt-dev/tilt/internal/engine/configs"
-	"github.com/tilt-dev/tilt/internal/engine/dockerprune"
 	"github.com/tilt-dev/tilt/internal/engine/k8srollout"
 	"github.com/tilt-dev/tilt/internal/engine/k8swatch"
 	"github.com/tilt-dev/tilt/internal/engine/local"
@@ -2528,46 +2527,6 @@ stringData:
 	})
 }
 
-func TestDisableDockerPrune(t *testing.T) {
-	f := newTestFixture(t)
-	f.useRealTiltfileLoader()
-
-	f.WriteFile("Dockerfile", `FROM iron/go:prod`)
-	f.WriteFile("snack.yaml", simpleYAML)
-
-	f.WriteFile("Tiltfile", `
-docker_prune_settings(disable=True)
-`+simpleTiltfile)
-
-	f.loadAndStart()
-
-	f.WaitUntil("Tiltfile loaded", func(state store.EngineState) bool {
-		return len(state.MainTiltfileState().BuildHistory) == 1
-	})
-	f.withState(func(state store.EngineState) {
-		assert.False(t, state.DockerPruneSettings.Enabled)
-	})
-}
-
-func TestDockerPruneEnabledByDefault(t *testing.T) {
-	f := newTestFixture(t)
-	f.useRealTiltfileLoader()
-
-	f.WriteFile("Tiltfile", simpleTiltfile)
-	f.WriteFile("Dockerfile", `FROM iron/go:prod`)
-	f.WriteFile("snack.yaml", simpleYAML)
-
-	f.loadAndStart()
-
-	f.WaitUntil("Tiltfile loaded", func(state store.EngineState) bool {
-		return len(state.MainTiltfileState().BuildHistory) == 1
-	})
-	f.withState(func(state store.EngineState) {
-		assert.True(t, state.DockerPruneSettings.Enabled)
-		assert.Equal(t, model.DockerPruneDefaultMaxAge, state.DockerPruneSettings.MaxAge)
-		assert.Equal(t, model.DockerPruneDefaultInterval, state.DockerPruneSettings.Interval)
-	})
-}
 
 func TestHasEverBeenReadyK8s(t *testing.T) {
 	f := newTestFixture(t)
@@ -3109,7 +3068,6 @@ type testFixture struct {
 	tfl                        *tiltfile.FakeTiltfileLoader
 	realTFL                    tiltfile.TiltfileLoader
 	opter                      *tiltanalytics.FakeOpter
-	dp                         *dockerprune.DockerPruner
 	fe                         *cmd.FakeExecer
 	fpm                        *cmd.FakeProberManager
 	overrideMaxParallelUpdates int
@@ -3282,9 +3240,6 @@ func newTestFixture(t *testing.T, options ...fixtureOptions) *testFixture {
 		sr,
 	))
 
-	dp := dockerprune.NewDockerPruner(dockerClient)
-	dp.DisabledForTesting(true)
-
 	b := newFakeBuildAndDeployer(t, kClient, fakeDcc, cdc, kar, dcr)
 	bc := NewBuildController(b)
 
@@ -3309,7 +3264,6 @@ func newTestFixture(t *testing.T, options ...fixtureOptions) *testFixture {
 		tfl:                   tfl,
 		realTFL:               realTFL,
 		opter:                 to,
-		dp:                    dp,
 		fe:                    fe,
 		fpm:                   fpm,
 		ctrlClient:            cdc,

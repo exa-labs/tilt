@@ -22,7 +22,6 @@ import (
 	tiltfileanalytics "github.com/tilt-dev/tilt/internal/tiltfile/analytics"
 	"github.com/tilt-dev/tilt/internal/tiltfile/cisettings"
 	"github.com/tilt-dev/tilt/internal/tiltfile/config"
-	"github.com/tilt-dev/tilt/internal/tiltfile/dockerprune"
 	"github.com/tilt-dev/tilt/internal/tiltfile/hasher"
 	"github.com/tilt-dev/tilt/internal/tiltfile/io"
 	"github.com/tilt-dev/tilt/internal/tiltfile/k8scontext"
@@ -52,7 +51,6 @@ type TiltfileLoadResult struct {
 	TelemetrySettings   model.TelemetrySettings
 	Secrets             model.SecretSet
 	Error               error
-	DockerPruneSettings model.DockerPruneSettings
 	AnalyticsOpt        wmanalytics.Opt
 	VersionSettings     model.VersionSettings
 	UpdateSettings      model.UpdateSettings
@@ -197,9 +195,6 @@ func (tfl tiltfileLoader) Load(ctx context.Context, tf *corev1alpha1.Tiltfile, p
 	tlr.ConfigFiles = append(tlr.ConfigFiles, ioState.Paths...)
 	tlr.ConfigFiles = append(tlr.ConfigFiles, s.postExecReadFiles...)
 	tlr.ConfigFiles = sliceutils.DedupedAndSorted(tlr.ConfigFiles)
-
-	dps, _ := dockerprune.GetState(result)
-	tlr.DockerPruneSettings = dps
 
 	aSettings, _ := tiltfileanalytics.GetState(result)
 	tlr.AnalyticsOpt = aSettings.Opt
