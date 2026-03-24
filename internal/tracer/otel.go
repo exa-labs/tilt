@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/embedded"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -66,6 +67,25 @@ func (g *fixedTraceIDGenerator) NewSpanID(ctx context.Context, traceID trace.Tra
 	return sid
 }
 
+// rootParentTracer wraps a trace.Tracer to automatically inject a remote
+// parent span context for top-level spans. This ensures that all tilt-native
+// spans (update, image-build, k8s-deploy, etc.) appear as children of the
+// tilt.sh root span in the trace viewer.
+type rootParentTracer struct {
+	embedded.Tracer
+	inner  trace.Tracer
+	rootSC trace.SpanContext
+}
+
+func (t *rootParentTracer) Start(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	// If there's no active parent span in the context, inject the root span
+	// as a remote parent so this span becomes a child of tilt.sh.
+	if !trace.SpanContextFromContext(ctx).IsValid() {
+		ctx = trace.ContextWithRemoteSpanContext(ctx, t.rootSC)
+	}
+	return t.inner.Start(ctx, name, opts...)
+}
+
 func InitOpenTelemetry(exporter sdktrace.SpanExporter) trace.Tracer {
 	opts := []sdktrace.TracerProviderOption{
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
@@ -88,11 +108,16 @@ func InitOpenTelemetry(exporter sdktrace.SpanExporter) trace.Tracer {
 		}
 	}
 
+	var traceID trace.TraceID
+	var hasTraceID bool
+
 	// If TILT_TRACE_ID is set, pin all spans to that trace so they join
 	// the umbrella trace started by tilt.sh.
 	if traceIDHex := os.Getenv("TILT_TRACE_ID"); traceIDHex != "" {
 		if tid, err := parseTraceID(traceIDHex); err == nil {
 			opts = append(opts, sdktrace.WithIDGenerator(newFixedTraceIDGenerator(tid)))
+			traceID = tid
+			hasTraceID = true
 		}
 	}
 
@@ -104,6 +129,23 @@ func InitOpenTelemetry(exporter sdktrace.SpanExporter) trace.Tracer {
 
 	tp := sdktrace.NewTracerProvider(opts...)
 	tracer := tp.Tracer(tracerName)
+
+	// If TILT_ROOT_SPAN_ID is set, wrap the tracer so that top-level spans
+	// (those without a parent in context) become children of the root span.
+	if hasTraceID {
+		if rootSpanHex := os.Getenv("TILT_ROOT_SPAN_ID"); rootSpanHex != "" {
+			if sid, err := parseSpanID(rootSpanHex); err == nil {
+				rootSC := trace.NewSpanContext(trace.SpanContextConfig{
+					TraceID:    traceID,
+					SpanID:     sid,
+					TraceFlags: trace.FlagsSampled,
+					Remote:     true,
+				})
+				tracer = &rootParentTracer{inner: tracer, rootSC: rootSC}
+			}
+		}
+	}
+
 	return tracer
 }
 
@@ -127,6 +169,16 @@ func parseTraceID(s string) (trace.TraceID, error) {
 	var tid trace.TraceID
 	copy(tid[:], b)
 	return tid, nil
+}
+
+func parseSpanID(s string) (trace.SpanID, error) {
+	b, err := hex.DecodeString(s)
+	if err != nil || len(b) != 8 {
+		return trace.SpanID{}, fmt.Errorf("invalid span ID %q", s)
+	}
+	var sid trace.SpanID
+	copy(sid[:], b)
+	return sid, nil
 }
 
 func buildResource() *resource.Resource {
