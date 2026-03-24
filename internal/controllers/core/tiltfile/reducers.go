@@ -186,6 +186,5 @@ func HandleConfigsReloaded(
 		state.VersionSettings = event.VersionSettings
 		state.AnalyticsTiltfileOpt = event.AnalyticsTiltfileOpt
 		state.UpdateSettings = event.UpdateSettings
-		state.DockerPruneSettings = event.DockerPruneSettings
 	}
 }

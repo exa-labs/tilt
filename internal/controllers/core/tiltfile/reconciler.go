@@ -388,7 +388,6 @@ func (r *Reconciler) handleLoaded(
 		TelemetrySettings:     tlr.TelemetrySettings,
 		Secrets:               tlr.Secrets,
 		AnalyticsTiltfileOpt:  tlr.AnalyticsOpt,
-		DockerPruneSettings:   tlr.DockerPruneSettings,
 		CheckpointAtExecStart: entry.CheckpointAtExecStart,
 		VersionSettings:       tlr.VersionSettings,
 		UpdateSettings:        tlr.UpdateSettings,

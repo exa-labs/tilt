@@ -89,7 +89,6 @@ type EngineState struct {
 	Token        token.Token
 	TeamID       string
 
-	DockerPruneSettings model.DockerPruneSettings
 
 	TelemetrySettings model.TelemetrySettings
 
@@ -565,7 +564,6 @@ func NewState() *EngineState {
 	ret.LogStore = logstore.NewLogStore()
 	ret.ManifestTargets = make(map[model.ManifestName]*ManifestTarget)
 	ret.Secrets = model.SecretSet{}
-	ret.DockerPruneSettings = model.DefaultDockerPruneSettings()
 	ret.VersionSettings = model.VersionSettings{
 		CheckUpdates: true,
 	}
