@@ -52,49 +52,56 @@ func NewBuildController(b buildcontrol.BuildAndDeployer) *BuildController {
 	}
 }
 
-func (c *BuildController) needsBuild(ctx context.Context, st store.RStore) (buildEntry, bool) {
+func (c *BuildController) needsBuilds(ctx context.Context, st store.RStore) []buildEntry {
 	state := st.RLockState()
 	defer st.RUnlockState()
 
-	// Don't start the next build until the previous action has been recorded,
+	// Don't start any new builds until all previous actions have been recorded,
 	// so that we don't accidentally repeat the same build.
 	if c.buildsStartedCount > state.BuildControllerStartCount {
-		return buildEntry{}, false
+		return nil
 	}
 
-	// no build slots available
-	if state.AvailableBuildSlots() < 1 {
-		return buildEntry{}, false
+	var entries []buildEntry
+	exclude := make(map[model.ManifestName]bool)
+
+	for {
+		if state.AvailableBuildSlots()-len(entries) < 1 {
+			break
+		}
+
+		mt, _ := buildcontrol.NextTargetToBuildExcluding(state, exclude)
+		if mt == nil {
+			break
+		}
+
+		exclude[mt.Manifest.Name] = true
+		c.buildsStartedCount += 1
+		ms := mt.State
+		manifest := mt.Manifest
+
+		buildReason := mt.NextBuildReason()
+		targets := buildcontrol.BuildTargets(manifest)
+		bss := buildStateSet(ctx,
+			manifest,
+			state.KubernetesResources[manifest.Name.String()],
+			state.DockerComposeServices[manifest.Name.String()],
+			state.Clusters[manifest.ClusterName()],
+			targets,
+			ms,
+			buildReason)
+
+		entries = append(entries, buildEntry{
+			name:          manifest.Name,
+			targets:       targets,
+			buildReason:   buildReason,
+			buildStateSet: bss,
+			filesChanged:  append(ms.ConfigFilesThatCausedChange, bss.FilesChanged()...),
+			spanID:        SpanIDForBuildLog(c.buildsStartedCount),
+		})
 	}
 
-	mt, _ := buildcontrol.NextTargetToBuild(state)
-	if mt == nil {
-		return buildEntry{}, false
-	}
-
-	c.buildsStartedCount += 1
-	ms := mt.State
-	manifest := mt.Manifest
-
-	buildReason := mt.NextBuildReason()
-	targets := buildcontrol.BuildTargets(manifest)
-	buildStateSet := buildStateSet(ctx,
-		manifest,
-		state.KubernetesResources[manifest.Name.String()],
-		state.DockerComposeServices[manifest.Name.String()],
-		state.Clusters[manifest.ClusterName()],
-		targets,
-		ms,
-		buildReason)
-
-	return buildEntry{
-		name:          manifest.Name,
-		targets:       targets,
-		buildReason:   buildReason,
-		buildStateSet: buildStateSet,
-		filesChanged:  append(ms.ConfigFilesThatCausedChange, buildStateSet.FilesChanged()...),
-		spanID:        SpanIDForBuildLog(c.buildsStartedCount),
-	}, true
+	return entries
 }
 
 func (c *BuildController) DisableForTesting() {
@@ -111,37 +118,36 @@ func (c *BuildController) OnChange(ctx context.Context, st store.RStore, summary
 	if c.disabledForTesting {
 		return nil
 	}
-	entry, ok := c.needsBuild(ctx, st)
-	if !ok {
-		return nil
-	}
 
-	st.Dispatch(buildcontrols.BuildStartedAction{
-		ManifestName:       entry.name,
-		StartTime:          time.Now(),
-		FilesChanged:       entry.filesChanged,
-		Reason:             entry.buildReason,
-		SpanID:             entry.spanID,
-		FullBuildTriggered: entry.buildStateSet.FullBuildTriggered(),
-		Source:             BuildControlSource,
-	})
-
-	go func() {
-		ctx = c.buildContext(ctx, entry, st)
-		defer c.cleanupBuildContext(entry.name)
-
-		buildcontrols.LogBuildEntry(ctx, buildcontrols.BuildEntry{
-			Name:         entry.Name(),
-			BuildReason:  entry.BuildReason(),
-			FilesChanged: entry.FilesChanged(),
+	entries := c.needsBuilds(ctx, st)
+	for _, entry := range entries {
+		st.Dispatch(buildcontrols.BuildStartedAction{
+			ManifestName:       entry.name,
+			StartTime:          time.Now(),
+			FilesChanged:       entry.filesChanged,
+			Reason:             entry.buildReason,
+			SpanID:             entry.spanID,
+			FullBuildTriggered: entry.buildStateSet.FullBuildTriggered(),
+			Source:             BuildControlSource,
 		})
 
-		result, err := c.buildAndDeploy(ctx, st, entry)
-		if ctx.Err() == context.Canceled {
-			err = errors.New("build canceled")
-		}
-		st.Dispatch(buildcontrols.NewBuildCompleteAction(entry.name, BuildControlSource, entry.spanID, result, err))
-	}()
+		go func(entry buildEntry) {
+			ctx = c.buildContext(ctx, entry, st)
+			defer c.cleanupBuildContext(entry.name)
+
+			buildcontrols.LogBuildEntry(ctx, buildcontrols.BuildEntry{
+				Name:         entry.Name(),
+				BuildReason:  entry.BuildReason(),
+				FilesChanged: entry.FilesChanged(),
+			})
+
+			result, err := c.buildAndDeploy(ctx, st, entry)
+			if ctx.Err() == context.Canceled {
+				err = errors.New("build canceled")
+			}
+			st.Dispatch(buildcontrols.NewBuildCompleteAction(entry.name, BuildControlSource, entry.spanID, result, err))
+		}(entry)
+	}
 
 	return nil
 }
