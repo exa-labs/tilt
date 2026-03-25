@@ -50,6 +50,12 @@ func (bd *LocalTargetBuildAndDeployer) BuildAndDeploy(ctx context.Context, st st
 
 	targ := targets[0]
 
+	if targ.UpdateCmdSpec == nil {
+		// Even if a LocalResource has no update command, we push it through the build-and-deploy
+		// pipeline so that it gets all the appropriate logs.
+		return bd.successfulBuildResult(targ), nil
+	}
+
 	if bd.tracer != nil {
 		var span trace.Span
 		ctx, span = bd.tracer.Start(ctx, "local-update",
@@ -60,11 +66,6 @@ func (bd *LocalTargetBuildAndDeployer) BuildAndDeploy(ctx context.Context, st st
 			}
 			span.End()
 		}()
-	}
-	if targ.UpdateCmdSpec == nil {
-		// Even if a LocalResource has no update command, we push it through the build-and-deploy
-		// pipeline so that it gets all the appropriate logs.
-		return bd.successfulBuildResult(targ), nil
 	}
 
 	startTime := time.Now()

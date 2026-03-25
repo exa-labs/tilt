@@ -49,7 +49,15 @@ func NewCompositeBuildAndDeployer(builders BuildOrder, tracer trace.Tracer) *Com
 
 func (composite *CompositeBuildAndDeployer) BuildAndDeploy(ctx context.Context, st store.RStore, specs []model.TargetSpec, currentState store.BuildStateSet) (store.BuildResultSet, error) {
 	ctx, span := composite.tracer.Start(ctx, "update")
-	defer span.End()
+	meaningful := false
+	defer func() {
+		if !meaningful {
+			// All builders redirected — mark as noop so the trace viewer
+			// can hide these sub-millisecond no-op reconciliation spans.
+			span.SetAttributes(attribute.Bool("noop", true))
+		}
+		span.End()
+	}()
 	var lastErr, lastUnexpectedErr error
 
 	specNames := []string{}
@@ -66,6 +74,7 @@ func (composite *CompositeBuildAndDeployer) BuildAndDeploy(ctx context.Context, 
 
 		br, err := builder.BuildAndDeploy(ctx, st, specs, currentState)
 		if err == nil {
+			meaningful = true
 			buildTypes := br.BuildTypes()
 			for _, bt := range buildTypes {
 				span.SetAttributes(attribute.KeyValue{Key: attribute.Key(fmt.Sprintf("buildType.%s", bt)), Value: attribute.BoolValue(true)})
@@ -74,6 +83,7 @@ func (composite *CompositeBuildAndDeployer) BuildAndDeploy(ctx context.Context, 
 		}
 
 		if !buildcontrol.ShouldFallBackForErr(err) {
+			meaningful = true
 			return br, err
 		}
 
@@ -83,6 +93,7 @@ func (composite *CompositeBuildAndDeployer) BuildAndDeploy(ctx context.Context, 
 			s := fmt.Sprintf("Falling back to next update method…\nREASON: %v\n", err)
 			l.Write(redirectErr.Level, []byte(s))
 		} else {
+			meaningful = true
 			lastUnexpectedErr = err
 			if i+1 < len(composite.builders) {
 				logger.Get(ctx).Infof("got unexpected error during build/deploy: %v", err)
