@@ -1188,6 +1188,19 @@ def disable_snapshots() -> None:
     ensures a pretty high bar of intent.
     """
 
+def docker_prune_settings(disable: bool=False, max_age_mins: int=360,
+                          num_builds: int=0, interval_hrs: int=1, keep_recent: int=2) -> None:
+  """No-op. The Docker Pruner has been removed. This function is kept for
+  backwards compatibility so that existing Tiltfiles do not break.
+
+  Args:
+    disable: ignored
+    max_age_mins: ignored
+    num_builds: ignored
+    interval_hrs: ignored
+    keep_recent: ignored
+  """
+  pass
 
 def analytics_settings(enable: bool) -> None:
   """Overrides Tilt telemetry.
