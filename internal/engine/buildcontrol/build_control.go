@@ -18,11 +18,33 @@ import (
 //
 // The HoldSet is used in the UI to display why a resource is waiting.
 func NextTargetToBuild(state store.EngineState) (*store.ManifestTarget, HoldSet) {
+	return nextTargetToBuild(state, nil)
+}
+
+// NextTargetToBuildExcluding is like NextTargetToBuild but filters out
+// manifests in the exclude set. This allows the BuildController to pick
+// multiple targets in a single OnChange cycle without re-selecting the
+// same manifest.
+func NextTargetToBuildExcluding(state store.EngineState, exclude map[model.ManifestName]bool) (*store.ManifestTarget, HoldSet) {
+	return nextTargetToBuild(state, exclude)
+}
+
+func nextTargetToBuild(state store.EngineState, exclude map[model.ManifestName]bool) (*store.ManifestTarget, HoldSet) {
 	holds := HoldSet{}
 
 	// Only grab the targets that need any builds at all,
 	// so that we don't put holds on builds that aren't even eligible.
 	targets := FindTargetsNeedingAnyBuild(state)
+
+	if len(exclude) > 0 {
+		filtered := make([]*store.ManifestTarget, 0, len(targets))
+		for _, mt := range targets {
+			if !exclude[mt.Manifest.Name] {
+				filtered = append(filtered, mt)
+			}
+		}
+		targets = filtered
+	}
 
 	// Don't build anything if there are pending config file changes.
 	// We want the Tiltfile to re-run first.
