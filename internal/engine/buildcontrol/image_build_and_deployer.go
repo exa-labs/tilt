@@ -2,7 +2,9 @@ package buildcontrol
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -186,6 +188,15 @@ func (ibd *ImageBuildAndDeployer) build(
 		ctx, span = ibd.tracer.Start(ctx, "image-build",
 			trace.WithAttributes(attribute.String("image", iTarget.ID().String())))
 		defer span.End()
+
+		// Export the image-build span ID so custom_build scripts (e.g. nix
+		// build in lib.star) can parent their child spans under it.
+		sc := span.SpanContext()
+		if sc.HasSpanID() {
+			sid := sc.SpanID()
+			os.Setenv("TILT_IMAGE_BUILD_SPAN_ID", hex.EncodeToString(sid[:]))
+			defer os.Unsetenv("TILT_IMAGE_BUILD_SPAN_ID")
+		}
 	}
 	switch iTarget.BuildDetails.(type) {
 	case model.DockerBuild:
