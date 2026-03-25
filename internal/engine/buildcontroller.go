@@ -75,10 +75,26 @@ func (c *BuildController) needsBuilds(ctx context.Context, st store.RStore) []bu
 			break
 		}
 
+		// Enforce parallelization constraints that normally rely on
+		// IsBuilding() state (which isn't updated within this loop).
+		if len(entries) > 0 {
+			if mt.Manifest.IsLocal() && !mt.Manifest.LocalTarget().AllowParallel {
+				break
+			}
+			if mt.Manifest.Name == model.UnresourcedYAMLManifestName {
+				break
+			}
+		}
+
 		exclude[mt.Manifest.Name] = true
 		c.buildsStartedCount += 1
 		ms := mt.State
 		manifest := mt.Manifest
+
+		// If this target is unparallelizable or uncategorized YAML,
+		// don't pick any more after it.
+		stopAfter := (manifest.IsLocal() && !manifest.LocalTarget().AllowParallel) ||
+			manifest.Name == model.UnresourcedYAMLManifestName
 
 		buildReason := mt.NextBuildReason()
 		targets := buildcontrol.BuildTargets(manifest)
@@ -99,6 +115,10 @@ func (c *BuildController) needsBuilds(ctx context.Context, st store.RStore) []bu
 			filesChanged:  append(ms.ConfigFilesThatCausedChange, bss.FilesChanged()...),
 			spanID:        SpanIDForBuildLog(c.buildsStartedCount),
 		})
+
+		if stopAfter {
+			break
+		}
 	}
 
 	return entries
@@ -131,7 +151,7 @@ func (c *BuildController) OnChange(ctx context.Context, st store.RStore, summary
 			Source:             BuildControlSource,
 		})
 
-		go func(entry buildEntry) {
+		go func(ctx context.Context, entry buildEntry) {
 			ctx = c.buildContext(ctx, entry, st)
 			defer c.cleanupBuildContext(entry.name)
 
@@ -146,7 +166,7 @@ func (c *BuildController) OnChange(ctx context.Context, st store.RStore, summary
 				err = errors.New("build canceled")
 			}
 			st.Dispatch(buildcontrols.NewBuildCompleteAction(entry.name, BuildControlSource, entry.spanID, result, err))
-		}(entry)
+		}(ctx, entry)
 	}
 
 	return nil
