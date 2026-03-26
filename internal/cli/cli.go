@@ -20,6 +20,7 @@ import (
 	"github.com/tilt-dev/tilt/internal/controllers"
 	"github.com/tilt-dev/tilt/internal/controllers/core/cluster"
 	"github.com/tilt-dev/tilt/internal/output"
+	"github.com/tilt-dev/tilt/internal/tracer"
 	"github.com/tilt-dev/tilt/pkg/logger"
 	"github.com/tilt-dev/tilt/pkg/model"
 	"github.com/tilt-dev/wmclient/pkg/analytics"
@@ -163,6 +164,11 @@ func addCommand(parent *cobra.Command, child tiltCmd) {
 		ctx := preCommand(cmd.Context(), child.name())
 
 		err := child.run(ctx, args)
+
+		// Flush any buffered OTLP spans before exiting so tilt-native
+		// spans (update, image-build, k8s-deploy, etc.) are delivered.
+		tracer.ShutdownOpenTelemetry()
+
 		if err != nil {
 			// TODO(maia): this shouldn't print if we've already pretty-printed it
 			_, printErr := fmt.Fprintf(output.OriginalStderr, "Error: %v\n", err)

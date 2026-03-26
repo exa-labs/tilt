@@ -24,6 +24,9 @@ import (
 
 const tracerName = "tilt.dev/usage"
 
+// globalTP holds the TracerProvider so we can flush it on shutdown.
+var globalTP *sdktrace.TracerProvider
+
 // fixedTraceIDGenerator always returns the same TraceID (from TILT_TRACE_ID env)
 // so that all tilt-internal spans join the parent trace started by tilt.sh.
 type fixedTraceIDGenerator struct {
@@ -128,6 +131,7 @@ func InitOpenTelemetry(exporter sdktrace.SpanExporter) trace.Tracer {
 	}
 
 	tp := sdktrace.NewTracerProvider(opts...)
+	globalTP = tp
 	tracer := tp.Tracer(tracerName)
 
 	// If TILT_ROOT_SPAN_ID is set, wrap the tracer so that top-level spans
@@ -147,6 +151,17 @@ func InitOpenTelemetry(exporter sdktrace.SpanExporter) trace.Tracer {
 	}
 
 	return tracer
+}
+
+// ShutdownOpenTelemetry flushes all buffered spans and shuts down the global
+// TracerProvider.  Call this before the process exits so that the OTLP
+// BatchSpanProcessor delivers any remaining spans to the collector.
+func ShutdownOpenTelemetry() {
+	if globalTP != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = globalTP.Shutdown(ctx)
+	}
 }
 
 func newOTLPExporter(endpoint string) (sdktrace.SpanExporter, error) {
