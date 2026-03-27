@@ -99,7 +99,7 @@ func (c *ciCmd) run(ctx context.Context, args []string) error {
 
 	err = upper.Start(ctx, args, cmdCIDeps.TiltBuild,
 		c.fileName, store.TerminalModeStream, a.UserOpt(), cmdCIDeps.Token,
-		string(cmdCIDeps.CloudAddress))
+		string(cmdCIDeps.CloudAddress), false)
 	if err == nil {
 		_, _ = fmt.Fprintln(colorable.NewColorableStdout(),
 			color.GreenString("SUCCESS. All workloads are healthy."))

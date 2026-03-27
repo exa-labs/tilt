@@ -23,6 +23,13 @@ type EngineState struct {
 	TiltBuildInfo model.TiltBuild
 	TiltStartTime time.Time
 
+	// AttachMode indicates that tilt should blindly attach to existing
+	// deployments instead of rebuilding them. When a manifest's pods are
+	// discovered before its first build, a synthetic build record is injected
+	// so that tilt treats the manifest as already deployed. Resources that
+	// have no existing pods are built and deployed normally.
+	AttachMode bool
+
 	// saved so that we can render in order
 	ManifestDefinitionOrder []model.ManifestName
 

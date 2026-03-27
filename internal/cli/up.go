@@ -173,7 +173,7 @@ func (c *upCmd) run(ctx context.Context, args []string) error {
 	}
 
 	err = upper.Start(ctx, args, cmdUpDeps.TiltBuild,
-		c.fileName, termMode, a.UserOpt(), cmdUpDeps.Token, string(cmdUpDeps.CloudAddress))
+		c.fileName, termMode, a.UserOpt(), cmdUpDeps.Token, string(cmdUpDeps.CloudAddress), false)
 	if err != context.Canceled {
 		return err
 	} else {

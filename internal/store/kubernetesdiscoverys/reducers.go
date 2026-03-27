@@ -3,6 +3,8 @@ package kubernetesdiscoverys
 import (
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/tilt-dev/tilt/internal/controllers/apicmp"
 	"github.com/tilt-dev/tilt/internal/store"
 	"github.com/tilt-dev/tilt/internal/store/k8sconv"
@@ -79,7 +81,6 @@ func RefreshKubernetesResource(state *store.EngineState, name string) {
 			krs := ms.K8sRuntimeState()
 
 			if d == nil {
-				// if the KubernetesDiscovery goes away, we no longer know about any pods
 				krs.FilteredPods = nil
 				ms.RuntimeState = krs
 				return
@@ -89,12 +90,49 @@ func RefreshKubernetesResource(state *store.EngineState, name string) {
 			krs.Conditions = r.ApplyStatus.Conditions
 
 			if krs.RuntimeStatus() == v1alpha1.RuntimeStatusOK {
-				// NOTE(nick): It doesn't seem right to update this timestamp everytime
-				// we get a new event, but it's what the old code did.
 				krs.LastReadyOrSucceededTime = time.Now()
 			}
 
 			ms.RuntimeState = krs
+
+			maybeInjectAttachBuild(state, ms, r)
 		}
 	}
+}
+
+// maybeInjectAttachBuild injects a synthetic build record when running in
+// attach mode. This makes tilt treat already-running pods as "already deployed"
+// so it skips the initial image build and kubectl apply. Resources without
+// running pods fall through to the normal build path.
+func maybeInjectAttachBuild(state *store.EngineState, ms *store.ManifestState, r *k8sconv.KubernetesResource) {
+	if !state.AttachMode {
+		return
+	}
+	if ms.StartedFirstBuild() {
+		return
+	}
+	if !hasRunningPod(r.FilteredPods) {
+		return
+	}
+
+	now := time.Now()
+	ms.AddCompletedBuild(model.BuildRecord{
+		StartTime:  now,
+		FinishTime: now,
+		Reason:     model.BuildReasonFlagInit,
+	})
+	ms.LastSuccessfulDeployTime = now
+
+	krs := ms.K8sRuntimeState()
+	krs.HasEverDeployedSuccessfully = true
+	ms.RuntimeState = krs
+}
+
+func hasRunningPod(pods []v1alpha1.Pod) bool {
+	for i := range pods {
+		if pods[i].Phase == string(v1.PodRunning) {
+			return true
+		}
+	}
+	return false
 }
