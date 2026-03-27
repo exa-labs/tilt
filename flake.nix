@@ -158,6 +158,10 @@
           type = "app";
           program = "${tilt}/bin/tilt";
         };
+
+        devShells.default = pkgs.mkShell {
+          buildInputs = [ pkgs.go ];
+        };
       }
     );
 }
